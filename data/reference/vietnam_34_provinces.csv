@@ -1,0 +1,35 @@
+﻿province_code,province_name,province_codename,division_type,phone_code
+1,Thành phố Hà Nội,ha_noi,thành phố trung ương,24
+4,Tỉnh Cao Bằng,cao_bang,tỉnh,206
+8,Tỉnh Tuyên Quang,tuyen_quang,tỉnh,207
+11,Tỉnh Điện Biên,dien_bien,tỉnh,215
+12,Tỉnh Lai Châu,lai_chau,tỉnh,213
+14,Tỉnh Sơn La,son_la,tỉnh,212
+15,Tỉnh Lào Cai,lao_cai,tỉnh,214
+19,Tỉnh Thái Nguyên,thai_nguyen,tỉnh,208
+20,Tỉnh Lạng Sơn,lang_son,tỉnh,205
+22,Tỉnh Quảng Ninh,quang_ninh,tỉnh,203
+24,Tỉnh Bắc Ninh,bac_ninh,tỉnh,222
+25,Tỉnh Phú Thọ,phu_tho,tỉnh,210
+31,Thành phố Hải Phòng,hai_phong,thành phố trung ương,225
+33,Tỉnh Hưng Yên,hung_yen,tỉnh,221
+37,Tỉnh Ninh Bình,ninh_binh,tỉnh,229
+38,Tỉnh Thanh Hóa,thanh_hoa,tỉnh,237
+40,Tỉnh Nghệ An,nghe_an,tỉnh,238
+42,Tỉnh Hà Tĩnh,ha_tinh,tỉnh,239
+44,Tỉnh Quảng Trị,quang_tri,tỉnh,233
+46,Thành phố Huế,hue,thành phố trung ương,234
+48,Thành phố Đà Nẵng,da_nang,thành phố trung ương,236
+51,Tỉnh Quảng Ngãi,quang_ngai,tỉnh,255
+52,Tỉnh Gia Lai,gia_lai,tỉnh,269
+56,Tỉnh Khánh Hòa,khanh_hoa,tỉnh,258
+66,Tỉnh Đắk Lắk,dak_lak,tỉnh,262
+68,Tỉnh Lâm Đồng,lam_dong,tỉnh,263
+75,Tỉnh Đồng Nai,dong_nai,tỉnh,251
+79,Thành phố Hồ Chí Minh,ho_chi_minh,thành phố trung ương,28
+80,Tỉnh Tây Ninh,tay_ninh,tỉnh,276
+82,Tỉnh Đồng Tháp,dong_thap,tỉnh,277
+86,Tỉnh Vĩnh Long,vinh_long,tỉnh,270
+91,Tỉnh An Giang,an_giang,tỉnh,296
+92,Thành phố Cần Thơ,can_tho,thành phố trung ương,292
+96,Tỉnh Cà Mau,ca_mau,tỉnh,290

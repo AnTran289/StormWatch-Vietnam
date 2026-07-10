@@ -1,0 +1,35 @@
+﻿province_code,province_name,province_codename,division_type,phone_code,latitude,longitude
+1,Thành phố Hà Nội,ha_noi,thành phố trung ương,24,21.0283334,105.854041
+4,Tỉnh Cao Bằng,cao_bang,tỉnh,206,22.7426936,106.1060926
+8,Tỉnh Tuyên Quang,tuyen_quang,tỉnh,207,22.3382057,105.0715846
+11,Tỉnh Điện Biên,dien_bien,tỉnh,215,21.6546566,103.2168632
+12,Tỉnh Lai Châu,lai_chau,tỉnh,213,22.2921668,103.1798662
+14,Tỉnh Sơn La,son_la,tỉnh,212,21.2276769,104.1575944
+15,Tỉnh Lào Cai,lao_cai,tỉnh,214,22.3069302,104.1829592
+19,Tỉnh Thái Nguyên,thai_nguyen,tỉnh,208,21.9610968,105.8440789
+20,Tỉnh Lạng Sơn,lang_son,tỉnh,205,21.8487579,106.6140692
+22,Tỉnh Quảng Ninh,quang_ninh,tỉnh,203,21.1718046,107.2012742
+24,Tỉnh Bắc Ninh,bac_ninh,tỉnh,222,21.3282166,106.4625257
+25,Tỉnh Phú Thọ,phu_tho,tỉnh,210,21.3007538,105.1349604
+31,Thành phố Hải Phòng,hai_phong,thành phố trung ương,225,20.8830967,106.6790381
+33,Tỉnh Hưng Yên,hung_yen,tỉnh,221,20.6065846,106.2843471
+37,Tỉnh Ninh Bình,ninh_binh,tỉnh,229,20.2867258,106.1000359
+38,Tỉnh Thanh Hóa,thanh_hoa,tỉnh,237,19.9781573,105.4816107
+40,Tỉnh Nghệ An,nghe_an,tỉnh,238,19.1976001,105.060676
+42,Tỉnh Hà Tĩnh,ha_tinh,tỉnh,239,18.3504832,105.7623047
+44,Tỉnh Quảng Trị,quang_tri,tỉnh,233,17.2166964,106.9548246
+46,Thành phố Huế,hue,thành phố trung ương,234,16.4639321,107.5863388
+48,Thành phố Đà Nẵng,da_nang,thành phố trung ương,236,16.068501,108.2240242
+51,Tỉnh Quảng Ngãi,quang_ngai,tỉnh,255,14.9953739,108.691729
+52,Tỉnh Gia Lai,gia_lai,tỉnh,269,14.0201373,108.6354524
+56,Tỉnh Khánh Hòa,khanh_hoa,tỉnh,258,12.2980751,108.9950386
+66,Tỉnh Đắk Lắk,dak_lak,tỉnh,262,12.8741856,108.7979302
+68,Tỉnh Lâm Đồng,lam_dong,tỉnh,263,11.6614957,108.1335279
+75,Tỉnh Đồng Nai,dong_nai,tỉnh,251,11.0806241,107.1873919
+79,Thành phố Hồ Chí Minh,ho_chi_minh,thành phố trung ương,28,10.7737261,106.7166008
+80,Tỉnh Tây Ninh,tay_ninh,tỉnh,276,11.0800527,106.2610531
+82,Tỉnh Đồng Tháp,dong_thap,tỉnh,277,10.425183,105.9271362
+86,Tỉnh Vĩnh Long,vinh_long,tỉnh,270,10.046765,106.2947443
+91,Tỉnh An Giang,an_giang,tỉnh,296,10.3188672,105.0432488
+92,Thành phố Cần Thơ,can_tho,thành phố trung ương,292,10.0362046,105.7872656
+96,Tỉnh Cà Mau,ca_mau,tỉnh,290,9.0180177,105.0869724

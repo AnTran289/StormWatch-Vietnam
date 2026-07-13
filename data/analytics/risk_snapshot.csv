@@ -1,0 +1,35 @@
+﻿province_code,province_name,peak_risk_time,rain_score,rain_risk_level,storm_score,storm_risk_level,flood_score,flood_risk_level,peak_risk_score,peak_risk_level,alert_priority,requires_attention
+92,Thành phố Cần Thơ,2026-07-12 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+46,Thành phố Huế,2026-07-12 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+1,Thành phố Hà Nội,2026-07-10 05:00:00,0,Low,2,High,0,Low,2,High,2,True
+31,Thành phố Hải Phòng,2026-07-11 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+79,Thành phố Hồ Chí Minh,2026-07-11 16:00:00,0,Low,2,High,0,Low,2,High,2,True
+91,Tỉnh An Giang,2026-07-11 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+24,Tỉnh Bắc Ninh,2026-07-11 15:00:00,0,Low,2,High,0,Low,2,High,2,True
+4,Tỉnh Cao Bằng,2026-07-11 19:00:00,0,Low,2,High,0,Low,2,High,2,True
+96,Tỉnh Cà Mau,2026-07-10 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+52,Tỉnh Gia Lai,2026-07-16 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+42,Tỉnh Hà Tĩnh,2026-07-10 17:00:00,0,Low,2,High,0,Low,2,High,2,True
+33,Tỉnh Hưng Yên,2026-07-10 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+56,Tỉnh Khánh Hòa,2026-07-13 13:00:00,0,Low,2,High,0,Low,2,High,2,True
+12,Tỉnh Lai Châu,2026-07-10 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+15,Tỉnh Lào Cai,2026-07-10 20:00:00,0,Low,2,High,0,Low,2,High,2,True
+20,Tỉnh Lạng Sơn,2026-07-12 16:00:00,0,Low,2,High,0,Low,2,High,2,True
+40,Tỉnh Nghệ An,2026-07-10 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+37,Tỉnh Ninh Bình,2026-07-10 16:00:00,0,Low,2,High,0,Low,2,High,2,True
+25,Tỉnh Phú Thọ,2026-07-10 15:00:00,0,Low,2,High,0,Low,2,High,2,True
+51,Tỉnh Quảng Ngãi,2026-07-10 21:00:00,0,Low,2,High,0,Low,2,High,2,True
+22,Tỉnh Quảng Ninh,2026-07-10 13:00:00,0,Low,2,High,0,Low,2,High,2,True
+44,Tỉnh Quảng Trị,2026-07-10 04:00:00,0,Low,2,High,0,Low,2,High,2,True
+14,Tỉnh Sơn La,2026-07-10 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+38,Tỉnh Thanh Hóa,2026-07-10 13:00:00,0,Low,2,High,0,Low,2,High,2,True
+19,Tỉnh Thái Nguyên,2026-07-10 16:00:00,0,Low,2,High,0,Low,2,High,2,True
+8,Tỉnh Tuyên Quang,2026-07-10 16:00:00,0,Low,2,High,0,Low,2,High,2,True
+80,Tỉnh Tây Ninh,2026-07-11 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+86,Tỉnh Vĩnh Long,2026-07-10 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+11,Tỉnh Điện Biên,2026-07-10 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+66,Tỉnh Đắk Lắk,2026-07-10 10:00:00,0,Low,2,High,0,Low,2,High,2,True
+75,Tỉnh Đồng Nai,2026-07-11 13:00:00,0,Low,2,High,0,Low,2,High,2,True
+82,Tỉnh Đồng Tháp,2026-07-11 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+48,Thành phố Đà Nẵng,2026-07-10 14:00:00,0,Low,1,Moderate,0,Low,1,Moderate,1,False
+68,Tỉnh Lâm Đồng,2026-07-10 09:00:00,0,Low,1,Moderate,0,Low,1,Moderate,1,False

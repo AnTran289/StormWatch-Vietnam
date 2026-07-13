@@ -1,0 +1,35 @@
+﻿province_code,province_name,latitude,longitude,peak_risk_time,rain_score,rain_risk_level,storm_score,storm_risk_level,flood_score,flood_risk_level,peak_risk_score,peak_risk_level,alert_priority,requires_attention
+92,Thành phố Cần Thơ,10.0362046,105.7872656,2026-07-12 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+46,Thành phố Huế,16.4639321,107.5863388,2026-07-12 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+1,Thành phố Hà Nội,21.0283334,105.854041,2026-07-10 05:00:00,0,Low,2,High,0,Low,2,High,2,True
+31,Thành phố Hải Phòng,20.8830967,106.6790381,2026-07-11 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+79,Thành phố Hồ Chí Minh,10.7737261,106.7166008,2026-07-11 16:00:00,0,Low,2,High,0,Low,2,High,2,True
+91,Tỉnh An Giang,10.3188672,105.0432488,2026-07-11 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+24,Tỉnh Bắc Ninh,21.3282166,106.4625257,2026-07-11 15:00:00,0,Low,2,High,0,Low,2,High,2,True
+4,Tỉnh Cao Bằng,22.7426936,106.1060926,2026-07-11 19:00:00,0,Low,2,High,0,Low,2,High,2,True
+96,Tỉnh Cà Mau,9.0180177,105.0869724,2026-07-10 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+52,Tỉnh Gia Lai,14.0201373,108.6354524,2026-07-16 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+42,Tỉnh Hà Tĩnh,18.3504832,105.7623047,2026-07-10 17:00:00,0,Low,2,High,0,Low,2,High,2,True
+33,Tỉnh Hưng Yên,20.6065846,106.2843471,2026-07-10 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+56,Tỉnh Khánh Hòa,12.2980751,108.9950386,2026-07-13 13:00:00,0,Low,2,High,0,Low,2,High,2,True
+12,Tỉnh Lai Châu,22.2921668,103.1798662,2026-07-10 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+15,Tỉnh Lào Cai,22.3069302,104.1829592,2026-07-10 20:00:00,0,Low,2,High,0,Low,2,High,2,True
+20,Tỉnh Lạng Sơn,21.8487579,106.6140692,2026-07-12 16:00:00,0,Low,2,High,0,Low,2,High,2,True
+40,Tỉnh Nghệ An,19.1976001,105.060676,2026-07-10 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+37,Tỉnh Ninh Bình,20.2867258,106.1000359,2026-07-10 16:00:00,0,Low,2,High,0,Low,2,High,2,True
+25,Tỉnh Phú Thọ,21.3007538,105.1349604,2026-07-10 15:00:00,0,Low,2,High,0,Low,2,High,2,True
+51,Tỉnh Quảng Ngãi,14.9953739,108.691729,2026-07-10 21:00:00,0,Low,2,High,0,Low,2,High,2,True
+22,Tỉnh Quảng Ninh,21.1718046,107.2012742,2026-07-10 13:00:00,0,Low,2,High,0,Low,2,High,2,True
+44,Tỉnh Quảng Trị,17.2166964,106.9548246,2026-07-10 04:00:00,0,Low,2,High,0,Low,2,High,2,True
+14,Tỉnh Sơn La,21.2276769,104.1575944,2026-07-10 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+38,Tỉnh Thanh Hóa,19.9781573,105.4816107,2026-07-10 13:00:00,0,Low,2,High,0,Low,2,High,2,True
+19,Tỉnh Thái Nguyên,21.9610968,105.8440789,2026-07-10 16:00:00,0,Low,2,High,0,Low,2,High,2,True
+8,Tỉnh Tuyên Quang,22.3382057,105.0715846,2026-07-10 16:00:00,0,Low,2,High,0,Low,2,High,2,True
+80,Tỉnh Tây Ninh,11.0800527,106.2610531,2026-07-11 14:00:00,0,Low,2,High,0,Low,2,High,2,True
+86,Tỉnh Vĩnh Long,10.046765,106.2947443,2026-07-10 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+11,Tỉnh Điện Biên,21.6546566,103.2168632,2026-07-10 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+66,Tỉnh Đắk Lắk,12.8741856,108.7979302,2026-07-10 10:00:00,0,Low,2,High,0,Low,2,High,2,True
+75,Tỉnh Đồng Nai,11.0806241,107.1873919,2026-07-11 13:00:00,0,Low,2,High,0,Low,2,High,2,True
+82,Tỉnh Đồng Tháp,10.425183,105.9271362,2026-07-11 12:00:00,0,Low,2,High,0,Low,2,High,2,True
+48,Thành phố Đà Nẵng,16.068501,108.2240242,2026-07-10 14:00:00,0,Low,1,Moderate,0,Low,1,Moderate,1,False
+68,Tỉnh Lâm Đồng,11.6614957,108.1335279,2026-07-10 09:00:00,0,Low,1,Moderate,0,Low,1,Moderate,1,False

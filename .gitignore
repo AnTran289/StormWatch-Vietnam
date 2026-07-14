@@ -1,44 +1,4 @@
-# Python virtual environment
-.venv/
-
-# Python cache files
 __pycache__/
 *.py[cod]
 
-# Environment variables and secrets
-.env
-
-# Test and tool caches
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Streamlit local configuration
-.streamlit/secrets.toml
-
-# Local database or temporary files
-*.db
-*.log
-
-# Generated data
-data/raw/
-data/processed/
-data/analytics/
-
-# Keep reference data if it is safe and small
-!data/reference/
-
-# VS Code workspace settings
 .vscode/settings.json
-
-# Operating-system files
-.DS_Store
-Thumbs.db
-
-# dbt generated files
-dbt_stormwatch/target/
-dbt_stormwatch/dbt_packages/
-dbt_stormwatch/logs/
-
-# Local dbt profile may contain connection configuration
-dbt_stormwatch/profiles.yml

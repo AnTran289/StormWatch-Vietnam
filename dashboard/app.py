@@ -1,445 +1,165 @@
 """
-File: dashboard/app.py
+Display the 7-day peak disaster risk for Vietnam's
+34 provincial-level administrative units.
 
-Purpose:
---------
-Display StormWatch Vietnam's province-level weather-risk forecast.
-
-Data sources:
--------------
-1. analytics_marts.province_risk_snapshot
-2. analytics_marts.fact_risk_scores
-3. metadata.pipeline_runs
-
-Run:
-----
-python -m streamlit run dashboard/app.py
+Input: data/processed/risk_snapshot.csv
+Run with: python -m streamlit run dashboard/app.py
 """
 
-# pandas provides DataFrame transformation functions.
-import pandas as pd
-
-# Streamlit provides dashboard components and database connections.
-import streamlit as st
+from pathlib import Path
 import unicodedata
-import altair as alt
-
+import pandas as pd
+import pydeck as pdk
+import streamlit as st
 
 # ============================================================
 # Page configuration
 # ============================================================
 
-# This should be the first Streamlit command in the application.
+# Set the page title and icon
 st.set_page_config(
-    page_title="StormWatch Vietnam",
-    page_icon="🌧️",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    page_title = "FloodAid - StormWatch Vietnam",
+    page_icon = "🌧️",
+    layout = "wide",
 )
 
-
 # ============================================================
-# Database connection
-# ============================================================
-
-def get_connection():
-    try:
-        return st.connection("stormwatch_db", type="sql")
-    except Exception as error:
-        st.error("Database connection failed. Check .streamlit/secrets.toml and DB credentials.")
-        st.exception(error)
-        st.stop()
-
-connection = get_connection()
-
-
-# ============================================================
-# Database queries
+# File configuration
 # ============================================================
 
-@st.cache_data(ttl=300)
-def load_province_snapshot() -> pd.DataFrame:
-    """
-    Load the highest forecast-risk hour for every province.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_PATH = PROJECT_ROOT / "data" / "processed" / "risk_snapshot.csv"
+WEATHER_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "fact_weather_hourly.csv"
+RISK_LEVELS = ["Low", "Moderate", "High", "Extreme"]
 
-    ttl=300 caches the returned DataFrame for five minutes.
+# ============================================================
+# Data loading
+# ============================================================
 
-    This prevents every filter interaction from sending another
-    identical query to PostgreSQL.
-    """
+@st.cache_data # stores data temporarily -> Streamlit doesn't need to read CSV again
 
-    query = """
-        SELECT
-            location_id,
-            province_code,
-            province_name,
-            latitude,
-            longitude,
-            peak_risk_time,
-            ingested_at,
-            temperature_c,
-            relative_humidity_percent,
-            precipitation_mm,
-            rain_mm,
-            rain_6h_mm,
-            rain_24h_mm,
-            wind_speed_kmh,
-            wind_gusts_kmh,
-            surface_pressure_hpa,
-            weather_code,
-            rain_risk_score,
-            rain_risk_level,
-            storm_risk_score,
-            storm_risk_level,
-            flood_risk_score,
-            flood_risk_level,
-            peak_risk_score,
-            peak_risk_level,
-            requires_attention
-        FROM analytics_marts.province_risk_snapshot
-        ORDER BY
-            peak_risk_score DESC,
-            province_name ASC
-    """
+# Read and prepare the risk snapshot
+def load_snapshot(file_mtime: float)->pd.DataFrame:
 
-    # connection.query() executes a read-only SQL query
-    # and returns its result as a pandas DataFrame.
-    return connection.query(
-        query,
-        ttl=300,
-    )
+    # Check if the input file exists
+    if not DATA_PATH.exists():
+        raise FileNotFoundError(f"Input file not found: {DATA_PATH}")
+    
+    # Read the CSV file into a pandas DataFrame
+    snapshot_df = pd.read_csv(DATA_PATH, dtype={"province_code": str}) # Keep province_code as text bc it is an identifier
+
+    # Convert peak_risk_time to datetime 
+    if "peak_risk_time" in snapshot_df.columns:
+        snapshot_df["peak_risk_time"] = pd.to_datetime(snapshot_df["peak_risk_time"], errors="coerce")
+
+    # Convert coordinates to numeric, coercing errors to NaN
+    for col in ["latitude", "longitude"]:
+        if col in snapshot_df.columns:
+            snapshot_df[col] = pd.to_numeric(snapshot_df[col], errors="coerce")
+
+    return snapshot_df
 
 
-@st.cache_data(ttl=300)
-def load_pipeline_runs() -> pd.DataFrame:
-    """
-    Load recent pipeline execution records.
-    """
+@st.cache_data
+def load_weather_forecast(file_mtime: float) -> pd.DataFrame:
 
-    query = """
-        SELECT
-            run_id,
-            pipeline_name,
-            started_at,
-            completed_at,
-            status,
-            rows_extracted,
-            rows_loaded,
-            error_message
-        FROM metadata.pipeline_runs
-        ORDER BY started_at DESC
-        LIMIT 10
-    """
+    if not WEATHER_DATA_PATH.exists():
+        raise FileNotFoundError(f"Weather forecast file not found: {WEATHER_DATA_PATH}")
 
-    return connection.query(
-        query,
-        ttl=300,
-    )
+    weather_df = pd.read_csv(WEATHER_DATA_PATH, dtype={"province_code": str})
 
+    for col in ["forecast_time", "ingested_at"]:
+        if col in weather_df.columns:
+            weather_df[col] = pd.to_datetime(weather_df[col], errors="coerce")
 
-@st.cache_data(ttl=300)
-def load_province_forecast(
-    location_id: int,
-) -> pd.DataFrame:
-    """
-    Load all hourly risk forecasts for one selected province.
-
-    Parameters
-    ----------
-    location_id:
-        Internal PostgreSQL location identifier.
-    """
-
-    query = """
-        SELECT
-            forecast_time,
-            temperature_c,
-            relative_humidity_percent,
-            rain_mm,
-            rain_6h_mm,
-            rain_24h_mm,
-            wind_speed_kmh,
-            wind_gusts_kmh,
-            surface_pressure_hpa,
-            weather_code,
-            rain_risk_score,
-            storm_risk_score,
-            flood_risk_score,
-            disaster_risk_score,
-            disaster_risk_level
-        FROM analytics_marts.fact_risk_scores
-        WHERE location_id = :location_id
-        ORDER BY forecast_time
-    """
-
-    # :location_id is a named SQL parameter.
-    #
-    # params supplies its value separately, avoiding unsafe
-    # SQL string construction.
-    return connection.query(
-        query,
-        params={
-            "location_id": int(location_id),
-        },
-        ttl=300,
-    )
-
+    return weather_df
 
 # ============================================================
 # Helper functions
 # ============================================================
 
-def risk_icon(risk_level: str) -> str:
-    """
-    Return a visual icon for a risk level.
-    """
-    icons = {
+# Return an icon for each risk level to display in the Streamlit app
+def get_risk_icon(risk_level: str)->str:
+    risk_icons = {
         "Low": "🟢",
         "Moderate": "🟡",
         "High": "🟠",
         "Extreme": "🔴",
     }
-    return icons.get(risk_level, "⚪")
+    return risk_icons.get(risk_level, "⚪")
 
 
-MAP_MARKER_ALPHA = 110  # 0=fully transparent, 255=fully opaque
-
-
-def risk_color_rgba(risk_level: str) -> list[int]:
-    """
-    Return map marker color by risk level with transparency.
-    """
-    colors = {
-        "Low": [46, 204, 113, MAP_MARKER_ALPHA],
-        "Moderate": [241, 196, 15, MAP_MARKER_ALPHA],
-        "High": [230, 126, 34, MAP_MARKER_ALPHA],
-        "Extreme": [231, 76, 60, MAP_MARKER_ALPHA],
+def get_risk_color(risk_level: str) -> list[int]:
+    risk_colors = {
+        "Low": [46, 204, 113, 200],
+        "Moderate": [241, 196, 15, 210],
+        "High": [230, 126, 34, 220],
+        "Extreme": [231, 76, 60, 230],
     }
-    return colors.get(
-        risk_level,
-        [149, 165, 166, MAP_MARKER_ALPHA],
-    )
+    return risk_colors.get(risk_level, [149, 165, 166, 180])
 
 
-def risk_priority(risk_level: str) -> int:
-    """
-    Convert a risk-level label into a sortable priority.
-    """
+def get_marker_radius(risk_level: str) -> int:
+    marker_radius = {
+        "Low": 18000,
+        "Moderate": 22000,
+        "High": 26000,
+        "Extreme": 30000,
+    }
+    return marker_radius.get(risk_level, 18000)
 
-    priorities = {
+# Return the highest overall risk level
+def get_highest_risk_level(snapshot_df: pd.DataFrame)->str:
+    
+    # Map risk levels to numeric values for comparison
+    priority_map = {
         "Low": 0,
         "Moderate": 1,
         "High": 2,
-        "Extreme": 3,
-    }
+        "Extreme": 3,}
+    
+    # Convert each risk level to its corresponding numeric value
+    priority_values = snapshot_df["peak_risk_level"].map(priority_map).fillna(0)
 
-    return priorities.get(risk_level, -1)
+    # returns the index with the highest numeric value
+    highest_priority = priority_values.idxmax()
 
-
-def format_datetime_columns(
-    dataframe: pd.DataFrame,
-) -> pd.DataFrame:
-    """
-    Convert timestamp columns into pandas datetime values.
-    """
-
-    result = dataframe.copy()
-
-    datetime_columns = [
-        "peak_risk_time",
-        "forecast_time",
-        "ingested_at",
-        "started_at",
-        "completed_at",
-    ]
-
-    for column in datetime_columns:
-        if column in result.columns:
-            result[column] = pd.to_datetime(
-                result[column],
-                utc=True,
-                errors="coerce",
-            )
-
-    return result
+    # Use that index to return the corresponding risk label
+    return snapshot_df.loc[highest_priority, "peak_risk_level"]
 
 
-def normalize_risk_level(value) -> str | None:
-    if pd.isna(value):
-        return None
-
-    text = str(value).strip().lower()
-    mapping = {
-        "low": "Low",
-        "moderate": "Moderate",
-        "high": "High",
-        "extreme": "Extreme",
-    }
-    return mapping.get(text, str(value).strip().title())
-
-
-def normalize_risk_columns(
-    dataframe: pd.DataFrame,
-) -> pd.DataFrame:
-    result = dataframe.copy()
-
-    risk_columns = [
-        "rain_risk_level",
-        "storm_risk_level",
-        "flood_risk_level",
-        "peak_risk_level",
-        "disaster_risk_level",
-    ]
-
-    for column in risk_columns:
-        if column in result.columns:
-            result[column] = result[column].apply(
-                normalize_risk_level
-            )
-
-    return result
-
-
-def normalize_text_for_search(value: str) -> str:
-    """
-    Normalize text for accent-insensitive province search.
-    Example: 'Hà Nội' -> 'ha noi'
-    """
-    if value is None:
-        return ""
-
-    text = str(value).strip().casefold()
-    text = unicodedata.normalize("NFD", text)
-    text = "".join(
-        ch for ch in text
-        if unicodedata.category(ch) != "Mn"
+def normalize_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    without_accents = "".join(
+        char for char in normalized if not unicodedata.combining(char)
     )
-    return text
-
-
-def validate_snapshot(
-    snapshot_df: pd.DataFrame,
-) -> None:
-    """
-    Validate the dashboard's primary dataset.
-    """
-
-    required_columns = {
-        "location_id",
-        "province_code",
-        "province_name",
-        "latitude",
-        "longitude",
-        "peak_risk_time",
-        "peak_risk_score",
-        "peak_risk_level",
-    }
-
-    missing_columns = (
-        required_columns
-        - set(snapshot_df.columns)
-    )
-
-    if missing_columns:
-        raise ValueError(
-            "Province snapshot is missing required columns: "
-            f"{sorted(missing_columns)}"
-        )
-
-    if snapshot_df.empty:
-        raise ValueError(
-            "The province snapshot contains no records."
-        )
-
-    province_count = snapshot_df[
-        "province_code"
-    ].nunique()
-
-    if province_count != 34:
-        raise ValueError(
-            f"Expected 34 provinces, but found "
-            f"{province_count}."
-        )
-
+    return " ".join(without_accents.lower().split())
 
 # ============================================================
-# Load dashboard data
+# Load data
 # ============================================================
 
 try:
-    snapshot_df = load_province_snapshot()
-    pipeline_runs_df = load_pipeline_runs()
+    snapshot_df = load_snapshot(DATA_PATH.stat().st_mtime)
+except FileNotFoundError as e:
+    st.error(f"Error: {e}")
+    st.stop()  # Stop execution if the file is not found
 
-    snapshot_df = format_datetime_columns(
-        snapshot_df
-    )
-    snapshot_df = normalize_risk_columns(
-        snapshot_df
-    )
-
-    pipeline_runs_df = format_datetime_columns(
-        pipeline_runs_df
-    )
-
-    validate_snapshot(snapshot_df)
-
-except Exception as error:
-    st.error(
-        "The dashboard could not load data from PostgreSQL."
-    )
-
-    # st.exception() displays the error and traceback.
-    # This is useful during development.
-    st.exception(error)
-
-    st.stop()
-
+try:
+    weather_df = load_weather_forecast(WEATHER_DATA_PATH.stat().st_mtime)
+except FileNotFoundError as e:
+    st.warning(f"Weather forecast details unavailable: {e}")
+    weather_df = pd.DataFrame()
 
 # ============================================================
 # Dashboard header
 # ============================================================
 
-st.title("🌧️ StormWatch Vietnam")
+st.title("Stormwatch Vietnam 🌧️")
 
-st.caption(
-    "Seven-day prototype storm, rainfall and flood-risk "
-    "monitoring across Vietnam's 34 provincial-level units."
-)
+st.caption("A 7-day peak disaster risk snapshot for Vietnam's 34 provincial-level administrative units.")
 
-st.warning(
-    "This system contains experimental portfolio-project risk "
-    "indicators. It is not an official disaster-warning service."
-)
-
-
-# ============================================================
-# Refresh controls
-# ============================================================
-
-refresh_column, timestamp_column = st.columns(
-    [1, 4]
-)
-
-with refresh_column:
-    # Clicking this button clears cached query results.
-    if st.button(
-        "↻ Refresh data",
-        use_container_width=True,
-    ):
-        st.cache_data.clear()
-        st.rerun()
-
-with timestamp_column:
-    latest_ingestion_time = (
-        snapshot_df["ingested_at"].max()
-    )
-
-    if pd.notna(latest_ingestion_time):
-        st.info(
-            "Latest forecast ingestion: "
-            f"{latest_ingestion_time:%Y-%m-%d %H:%M UTC}"
-        )
-
+st.warning("⚠️ This dashboard is for demonstration purposes only. It does not provide real-time disaster alerts. Please refer to official sources for emergency information.")
 
 # ============================================================
 # Sidebar filters
@@ -447,585 +167,323 @@ with timestamp_column:
 
 st.sidebar.header("Dashboard Filters")
 
-risk_order = [
-    "Low",
-    "Moderate",
-    "High",
-    "Extreme",
-]
+# Show all supported risk levels, even if some are not present in current data.
+risk_levels = RISK_LEVELS
 
-selected_risks = st.sidebar.multiselect(
-    label="Peak risk levels",
-    options=risk_order,
-    default=risk_order,
+# multi-select filter for risk levels
+selected_risk_levels = st.sidebar.multiselect(
+    label = "Select Risk Levels",
+    options = risk_levels,
+    default = risk_levels, # default to all risk levels selected
 )
 
+# Filter the DataFrame based on user's selection
+filtered_df = snapshot_df[snapshot_df["peak_risk_level"].isin(selected_risk_levels)].copy()  # Create a copy to avoid SettingWithCopyWarning
+
+# Let user search for a province
 province_search = st.sidebar.text_input(
-    label="Search province",
-    placeholder="Example: Hà Nội",
+    label = "Search Province",
+    placeholder = "Enter province name...",
 )
 
-attention_only = st.sidebar.checkbox(
-    label="Show only provinces requiring attention",
-    value=False,
-)
-
-filtered_df = snapshot_df[
-    snapshot_df["peak_risk_level"].isin(
-        selected_risks
-    )
-].copy()
-
+# Apply the province search filter if the user has entered a search term
 if province_search:
-    search_value = normalize_text_for_search(
-        province_search
+    search_value = normalize_text(province_search)
+    province_name_norm = filtered_df["province_name"].map(normalize_text)
+    province_code_norm = filtered_df["province_code"].fillna("").astype(str).str.lower()
+    filtered_df = filtered_df[
+        province_name_norm.str.contains(search_value, regex=False, na=False)
+        | province_code_norm.str.contains(search_value, regex=False, na=False)
+    ]
+
+filtered_risk_distribution = (
+    filtered_df["peak_risk_level"]
+    .value_counts()
+    .reindex(RISK_LEVELS, fill_value=0)
+)
+
+# ============================================================
+# Summary metrics
+# ============================================================
+
+# Count the total number of provinces in the full snapshot
+total_provinces = snapshot_df["province_code"].nunique()
+
+# Count provinces with High or Extreme risk levels in the filtered DataFrame
+attention_count = filtered_df[filtered_df["peak_risk_level"].isin(["High", "Extreme"])]["province_code"].nunique()
+
+# Count Extreme-risk provinces
+extreme_count = filtered_df[filtered_df["peak_risk_level"] == "Extreme"]["province_code"].nunique()
+
+# Find the highest national risk level
+highest_risk_level = get_highest_risk_level(snapshot_df)
+
+
+# Create 4 side-by-side dashboard areas.
+metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+
+# Displats metrics in the dashboard
+with metric_col1:
+    st.metric(
+        label = "Provinces monitored",
+        value = total_provinces,
     )
 
-    filtered_df = filtered_df[
-        filtered_df["province_name"]
-        .fillna("")
-        .apply(normalize_text_for_search)
-        .str.contains(
-            search_value,
-            regex=False,   # treat input as plain text
-            na=False,
+with metric_col2:
+    st.metric(
+        label = "Provinces needing attention",
+        value = attention_count,
+    )
+
+with metric_col3:
+    st.metric(
+        label = "Extreme-risk provinces",
+        value = extreme_count,
+    )
+
+with metric_col4:
+    st.metric(
+        label = "Highest national risk level",
+        value = highest_risk_level,
+        delta = get_risk_icon(highest_risk_level),
+    )
+
+# ============================================================
+# Map section
+# ============================================================
+
+st.subheader("National Risk Map")
+
+# Remove rows with missing coordinates to avoid errors in the map display
+map_df = filtered_df.dropna(subset=["latitude", "longitude"]).copy()
+
+if map_df.empty:
+    st.warning("No provinces match the selected filters. Please adjust your filters to view the map.")
+else:
+    map_df["risk_color"] = map_df["peak_risk_level"].apply(get_risk_color)
+    map_df["marker_radius"] = map_df["peak_risk_level"].apply(get_marker_radius)
+    map_df["peak_risk_time_label"] = map_df["peak_risk_time"].dt.strftime("%Y-%m-%d %H:%M")
+    map_df["peak_risk_time_label"] = map_df["peak_risk_time_label"].fillna("Unknown")
+
+    st.caption(
+        "Map colors: "
+        + " | ".join(
+            f"{get_risk_icon(level)} {level}: {int(filtered_risk_distribution[level])}"
+            for level in RISK_LEVELS
         )
-    ]
-
-if attention_only:
-    filtered_df = filtered_df[
-        filtered_df["requires_attention"] == True
-    ]
-
-
-# ============================================================
-# National summary metrics
-# ============================================================
-
-st.subheader("National Overview")
-
-total_provinces = snapshot_df[
-    "province_code"
-].nunique()
-
-attention_count = snapshot_df[
-    snapshot_df["requires_attention"] == True
-]["province_code"].nunique()
-
-high_count = snapshot_df[
-    snapshot_df["peak_risk_level"] == "High"
-]["province_code"].nunique()
-
-extreme_count = snapshot_df[
-    snapshot_df["peak_risk_level"] == "Extreme"
-]["province_code"].nunique()
-
-highest_risk_row = (
-    snapshot_df
-    .assign(
-        risk_priority=snapshot_df[
-            "peak_risk_level"
-        ].apply(risk_priority)
-    )
-    .sort_values(
-        by=[
-            "risk_priority",
-            "peak_risk_score",
-        ],
-        ascending=[
-            False,
-            False,
-        ],
-    )
-    .iloc[0]
-)
-
-metric_1, metric_2, metric_3, metric_4, metric_5 = (
-    st.columns(5)
-)
-
-with metric_1:
-    st.metric(
-        label="Provinces monitored",
-        value=total_provinces,
     )
 
-with metric_2:
-    st.metric(
-        label="Require attention",
-        value=attention_count,
+    # Plot each province as a point on an interactive map, colored by risk level.
+    risk_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=map_df,
+        get_position="[longitude, latitude]",
+        get_fill_color="risk_color",
+        get_radius="marker_radius",
+        get_line_color=[68, 68, 68, 180],
+        line_width_min_pixels=1,
+        pickable=True,
+        stroked=True,
     )
 
-with metric_3:
-    st.metric(
-        label="High risk",
-        value=high_count,
+    risk_view = pdk.ViewState(
+        latitude=float(map_df["latitude"].mean()),
+        longitude=float(map_df["longitude"].mean()),
+        zoom=4.6,
+        pitch=0,
     )
 
-with metric_4:
-    st.metric(
-        label="Extreme risk",
-        value=extreme_count,
-    )
-
-with metric_5:
-    highest_level = highest_risk_row[
-        "peak_risk_level"
-    ]
-
-    st.metric(
-        label="Highest national risk",
-        value=(
-            f"{risk_icon(highest_level)} "
-            f"{highest_level}"
+    st.pydeck_chart(
+        pdk.Deck(
+            layers=[risk_layer],
+            initial_view_state=risk_view,
+            tooltip={
+                "html": "<b>{province_name}</b><br/>Risk: {peak_risk_level}<br/>Peak time: {peak_risk_time_label}",
+                "style": {"backgroundColor": "#1f2937", "color": "white"},
+            },
         ),
-    )
-
-
-# ============================================================
-# National map and risk distribution
-# ============================================================
-
-map_column, chart_column = st.columns(
-    [2, 1]
-)
-
-with map_column:
-    st.subheader("Province Monitoring Map")
-
-    map_df = filtered_df.dropna(
-        subset=[
-            "latitude",
-            "longitude",
-        ]
-    ).copy()
-
-    if map_df.empty:
-        st.info(
-            "No provinces match the selected filters."
-        )
-
-    else:
-        # Add size and color fields for map markers.
-        map_df["marker_size"] = (
-            map_df["peak_risk_score"]
-            .fillna(0)
-            .astype(float)
-            .add(1)
-            .multiply(10000)
-        )
-
-        map_df["marker_color"] = map_df[
-            "peak_risk_level"
-        ].apply(risk_color_rgba)
-
-        st.map(
-            map_df,
-            latitude="latitude",
-            longitude="longitude",
-            size="marker_size",
-            color="marker_color",
-            use_container_width=True,
-        )
-
-with chart_column:
-    st.subheader("Risk Distribution")
-
-    risk_distribution = (
-        snapshot_df["peak_risk_level"]
-        .value_counts()
-        .reindex(
-            risk_order,
-            fill_value=0,
-        )
-        .rename("province_count")
-    )
-
-    st.bar_chart(
-        risk_distribution,
-        x_label="Risk level",
-        y_label="Province count",
         use_container_width=True,
     )
 
+# ============================================================
+# Risk distribution
+# ============================================================
+
+st.subheader("Risk Distribution")
+
+# Count provinces in each risk category for the filtered DataFrame
+risk_distribution = filtered_risk_distribution
+
+# Creates interative bar chart
+st.bar_chart(
+    risk_distribution,
+    x_label = "Risk Level",
+    y_label = "Number of Provinces",
+)
 
 # ============================================================
-# Priority province table
+# Provinces requiring attention
 # ============================================================
 
 st.subheader("Priority Provinces")
 
-priority_df = snapshot_df[
-    snapshot_df["requires_attention"] == True
-].copy()
+# Keep only high and extreme risk provinces for the table
+priority_df = filtered_df[filtered_df["peak_risk_level"].isin(["High", "Extreme"])].copy()
 
-priority_df["status"] = (
-    priority_df["peak_risk_level"]
-    .apply(risk_icon)
-)
-
+# Sort the most urgent provinces first.
 priority_df = priority_df.sort_values(
-    by=[
-        "peak_risk_score",
-        "peak_risk_time",
-    ],
-    ascending=[
-        False,
-        True,
-    ],
+    by=["alert_priority", "peak_risk_score", "peak_risk_time"],
+    ascending=[False, False, True],
 )
-
-priority_columns = [
-    "status",
-    "province_name",
-    "peak_risk_time",
-    "peak_risk_level",
-    "rain_6h_mm",
-    "rain_24h_mm",
-    "wind_gusts_kmh",
-    "storm_risk_level",
-    "flood_risk_level",
-]
 
 if priority_df.empty:
-    st.success(
-        "No provinces currently have High or Extreme "
-        "prototype risk levels."
-    )
-
+    st.success("No provinces currently have High or Extreme "
+               "risk levels. Please check back later for updates.")
+    
 else:
+
+    # Add visual status column.
+    priority_df["status"] = priority_df["peak_risk_level"].apply(get_risk_icon)
+
+    # Choose columns to display in the priority table
+    priority_columns = [
+        "status",
+        "province_name",
+        "peak_risk_time",
+        "peak_risk_level",
+        "rain_24h",
+        "wind_gust_rate",
+        "storm_risk_level",
+        "flood_risk_level",
+    ]
+
+    # Keep only the columns that exist in the DataFrame
+    priority_columns = [col for col in priority_columns if col in priority_df.columns]
+
+    # display interactive table
     st.dataframe(
         priority_df[priority_columns],
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "status": st.column_config.TextColumn(
-                "Status"
-            ),
-            "province_name": st.column_config.TextColumn(
-                "Province"
-            ),
-            "peak_risk_time": (
-                st.column_config.DatetimeColumn(
-                    "Peak risk time",
-                    format="YYYY-MM-DD HH:mm",
-                    timezone="Asia/Ho_Chi_Minh",
-                )
-            ),
-            "peak_risk_level": (
-                st.column_config.TextColumn(
-                    "Peak risk"
-                )
-            ),
-            "rain_6h_mm": (
-                st.column_config.NumberColumn(
-                    "Rain 6h",
-                    format="%.1f mm",
-                )
-            ),
-            "rain_24h_mm": (
-                st.column_config.NumberColumn(
-                    "Rain 24h",
-                    format="%.1f mm",
-                )
-            ),
-            "wind_gusts_kmh": (
-                st.column_config.NumberColumn(
-                    "Wind gust",
-                    format="%.1f km/h",
-                )
-            ),
-        },
     )
-
-
-# ============================================================
-# Province drilldown
-# ============================================================
-
-st.subheader("Province Forecast Drilldown")
-
-province_options = (
-    snapshot_df[
-        [
-            "location_id",
-            "province_name",
-        ]
-    ]
-    .sort_values("province_name")
-    .drop_duplicates()
-)
-
-province_name_to_id = dict(
-    zip(
-        province_options["province_name"],
-        province_options["location_id"],
-    )
-)
-
-selected_province_name = st.selectbox(
-    label="Select a province",
-    options=list(
-        province_name_to_id.keys()
-    ),
-)
-
-selected_location_id = province_name_to_id[
-    selected_province_name
-]
-
-try:
-    province_forecast_df = load_province_forecast(
-        location_id=int(
-            selected_location_id
-        )
-    )
-
-    province_forecast_df = (
-        format_datetime_columns(
-            province_forecast_df
-        )
-    )
-    province_forecast_df = normalize_risk_columns(
-        province_forecast_df
-    )
-
-except Exception as error:
-    st.error(
-        "Could not load the selected province forecast."
-    )
-    st.exception(error)
-    st.stop()
-
-
-selected_snapshot = snapshot_df[
-    snapshot_df["location_id"]
-    == selected_location_id
-].iloc[0]
-
-detail_1, detail_2, detail_3, detail_4 = st.columns(
-    4
-)
-
-with detail_1:
-    st.metric(
-        label="Peak risk",
-        value=(
-            f"{risk_icon(selected_snapshot['peak_risk_level'])} "
-            f"{selected_snapshot['peak_risk_level']}"
-        ),
-    )
-
-with detail_2:
-    st.metric(
-        label="Peak 24h rainfall",
-        value=(
-            f"{selected_snapshot['rain_24h_mm']:.1f} mm"
-        ),
-    )
-
-with detail_3:
-    st.metric(
-        label="Peak wind gust",
-        value=(
-            f"{selected_snapshot['wind_gusts_kmh']:.1f} km/h"
-        ),
-    )
-
-with detail_4:
-    st.metric(
-        label="Peak risk score",
-        value=int(
-            selected_snapshot["peak_risk_score"]
-        ),
-    )
-
-
-# ============================================================
-# Province forecast charts
-# ============================================================
-
-rain_chart_df = (
-    province_forecast_df
-    .set_index("forecast_time")
-    [
-        [
-            "rain_mm",
-            "rain_6h_mm",
-            "rain_24h_mm",
-        ]
-    ]
-)
-
-st.markdown("#### Rainfall Forecast")
-
-st.line_chart(
-    rain_chart_df,
-    x_label="Forecast time",
-    y_label="Rainfall (mm)",
-    use_container_width=True,
-)
-
-wind_chart_df = (
-    province_forecast_df
-    .set_index("forecast_time")
-    [
-        [
-            "wind_speed_kmh",
-            "wind_gusts_kmh",
-        ]
-    ]
-)
-
-st.markdown("#### Wind Forecast")
-
-st.line_chart(
-    wind_chart_df,
-    x_label="Forecast time",
-    y_label="Wind speed (km/h)",
-    use_container_width=True,
-)
-
-risk_chart_df = (
-    province_forecast_df
-    .set_index("forecast_time")
-    [
-        [
-            "rain_risk_score",
-            "storm_risk_score",
-            "flood_risk_score",
-            "disaster_risk_score",
-        ]
-    ]
-)
-
-st.markdown("#### Prototype Risk Scores")
-
-st.line_chart(
-    risk_chart_df,
-    x_label="Forecast time",
-    y_label="Risk score",
-    use_container_width=True,
-)
-
 
 # ============================================================
 # Complete province table
 # ============================================================
 
-st.subheader("All Province Snapshot Records")
+st.subheader("All Provinces Risk Records")
 
-filtered_df["status"] = (
-    filtered_df["peak_risk_level"]
-    .apply(risk_icon)
-)
+# Add an icon to each province
+filtered_df["status"] = filtered_df["peak_risk_level"].apply(get_risk_icon)
 
-all_province_columns = [
+# Select useful columns to display in the complete table
+display_columns = [
     "status",
-    "province_code",
     "province_name",
+    "province_code",
     "peak_risk_time",
-    "peak_risk_score",
     "peak_risk_level",
-    "rain_24h_mm",
-    "wind_gusts_kmh",
+    "peak_score",
+    "rain_24h",
+    "wind_gust_rate",
     "storm_risk_level",
     "flood_risk_level",
     "requires_attention",
 ]
 
+# keep only the columns that exist in the DataFrame
+display_columns = [col for col in display_columns if col in filtered_df.columns]
+
 st.dataframe(
-    filtered_df[all_province_columns],
+    filtered_df[display_columns],
     use_container_width=True,
     hide_index=True,
 )
 
-
 # ============================================================
-# Pipeline health
+# Weather forecast details
 # ============================================================
 
-st.subheader("Pipeline Health")
+st.subheader("Weather Forecast Details")
 
-if pipeline_runs_df.empty:
-    st.info(
-        "No pipeline-run metadata is available."
-    )
-
+if weather_df.empty:
+    st.info("Weather forecast details are not available right now.")
 else:
-    latest_run = pipeline_runs_df.iloc[0]
-
-    run_metric_1, run_metric_2, run_metric_3 = (
-        st.columns(3)
+    province_lookup = (
+        snapshot_df[["province_code", "province_name"]]
+        .drop_duplicates(subset=["province_code"])
     )
 
-    with run_metric_1:
-        st.metric(
-            label="Latest pipeline status",
-            value=str(
-                latest_run["status"]
-            ).upper(),
-        )
+    weather_forecast_df = weather_df.merge(
+        province_lookup,
+        on="province_code",
+        how="left",
+    )
 
-    with run_metric_2:
-        st.metric(
-            label="Rows extracted",
-            value=int(
-                latest_run["rows_extracted"]
-                or 0
-            ),
-        )
+    weather_forecast_df = weather_forecast_df[
+        weather_forecast_df["province_code"].isin(filtered_df["province_code"].unique())
+    ].copy()
 
-    with run_metric_3:
-        st.metric(
-            label="Rows loaded",
-            value=int(
-                latest_run["rows_loaded"]
-                or 0
-            ),
-        )
+    if province_search:
+        province_name_norm = weather_forecast_df["province_name"].map(normalize_text)
+        province_code_norm = weather_forecast_df["province_code"].fillna("").astype(str).str.lower()
+        search_value = normalize_text(province_search)
+        weather_forecast_df = weather_forecast_df[
+            province_name_norm.str.contains(search_value, regex=False, na=False)
+            | province_code_norm.str.contains(search_value, regex=False, na=False)
+        ]
 
-    pipeline_display_columns = [
-        "run_id",
-        "pipeline_name",
-        "started_at",
-        "completed_at",
-        "status",
-        "rows_extracted",
-        "rows_loaded",
-        "error_message",
+    weather_display_columns = [
+        "province_name",
+        "forecast_time",
+        "temperature_c",
+        "humidity_percent",
+        "rain_mm",
+        "rain_6h_mm",
+        "rain_24h_mm",
+        "wind_speed_kmh",
+        "wind_gust_kmh",
+        "surface_pressure_hpa",
+        "weather_code",
     ]
 
+    weather_display_columns = [
+        col for col in weather_display_columns if col in weather_forecast_df.columns
+    ]
+
+    weather_forecast_df = weather_forecast_df.sort_values(
+        by=["province_name", "forecast_time"],
+        ascending=[True, True],
+    )
+
+    st.caption(
+        "Hourly forecast rows for provinces that match the current risk and province filters."
+    )
+
     st.dataframe(
-        pipeline_runs_df[
-            pipeline_display_columns
-        ],
+        weather_forecast_df[weather_display_columns],
         use_container_width=True,
         hide_index=True,
     )
 
-
 # ============================================================
-# Data explanation
+# Data information
 # ============================================================
 
-with st.expander("About the dashboard"):
-    st.markdown(
-        """
-        **Data pipeline**
+# creates a collapsible section to display information
+with st.expander("About this data"):
+    st.write(
+        "Each province is represented by the forecast hour with "
+        "its highest combined prototype risk score."
+    )
 
-        1. Python fetches forecast data from Open-Meteo.
-        2. Raw responses are preserved as JSON.
-        3. Hourly records are loaded into PostgreSQL.
-        4. dbt selects the latest forecast version.
-        5. dbt calculates rolling rainfall and prototype risks.
-        6. Streamlit queries the dbt marts directly.
+    st.write(
+        "Weather data is collected from Open-Meteo using the "
+        "latitude and longitude stored in dim_locations.csv."
+    )
 
-        **Important limitation**
-
-        Flood risk currently uses forecast rainfall accumulation.
-        It does not yet include official river-gauge readings,
-        soil moisture, drainage capacity, terrain or official
-        Vietnamese emergency-warning information.
-        """
+    st.write(
+        "Flood risk currently uses forecast rainfall accumulation "
+        "only. It does not yet include river levels, elevation, "
+        "soil moisture or drainage data."
     )

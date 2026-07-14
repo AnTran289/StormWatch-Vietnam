@@ -1,0 +1,30 @@
+stormwatch_vietnam:
+
+  # The default output configuration to use.
+  target: dev
+
+  outputs:
+
+    # Development connection for local PostgreSQL.
+    dev:
+      # Tell dbt that the data platform is PostgreSQL.
+      type: postgres
+
+      # Read database settings from environment variables.
+      host: "{{ env_var('DB_HOST', 'localhost') }}"
+      port: "{{ env_var('DB_PORT', '5432') | int }}"
+      dbname: "{{ env_var('DB_NAME', 'stormwatch') }}"
+      user: "{{ env_var('DB_USER', 'stormwatch_user') }}"
+      password: "{{ env_var('DB_PASSWORD') }}"
+
+      # Schema where dbt creates its default models.
+      schema: analytics
+
+      # Number of SQL operations dbt may run concurrently.
+      threads: 4
+
+      # Keep the database connection open between operations.
+      keepalives_idle: 0
+
+      # Fail when a database connection takes too long.
+      connect_timeout: 10

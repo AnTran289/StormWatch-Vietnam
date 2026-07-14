@@ -1,0 +1,42 @@
+# Define the containers that belong to the StormWatch application.
+services:
+
+  # PostgreSQL stores province, weather and pipeline data.
+  postgres:
+    # Use an official PostgreSQL container image.
+    image: postgres:17
+
+    # Give the running container a readable name.
+    container_name: stormwatch-postgres
+
+    # Restart the container automatically unless it is manually stopped.
+    restart: unless-stopped
+
+    # Read PostgreSQL startup values from the project's .env file.
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    # Map the Windows host port to PostgreSQL's container port.
+    ports:
+      - "${POSTGRES_PORT}:5432"
+
+    # Keep database data after the container is removed or restarted.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    # Check whether PostgreSQL is ready to accept connections.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+# Named volumes are managed by Docker.
+volumes:
+  postgres_data:

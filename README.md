@@ -245,6 +245,14 @@ The dashboard expects these PostgreSQL relations:
 
 ---
 
+## Documentation
+
+Detailed documentation is available in the project Wiki.
+
+- 📖 https://github.com/AnTran289/StormWatch-Vietnam/wiki
+
+---
+
 ## Author
 
 **An Tran**

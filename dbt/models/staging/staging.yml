@@ -1,0 +1,77 @@
+version: 2
+
+models:
+
+  - name: stg_locations
+
+    description: >
+      Clean reference model for Vietnam's 34 provincial-level
+      monitoring locations.
+
+    columns:
+      - name: location_id
+        description: Internal location identifier.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: province_code
+        description: Administrative province code.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: province_name
+        data_tests:
+          - not_null
+
+      - name: latitude
+        data_tests:
+          - not_null
+
+      - name: longitude
+        data_tests:
+          - not_null
+
+  - name: stg_weather_hourly
+
+    description: >
+      Latest available hourly Open-Meteo forecast for each
+      location and forecast time.
+
+    columns:
+      - name: weather_id
+        data_tests:
+          - unique
+          - not_null
+
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_locations')
+                field: location_id
+
+      - name: province_code
+        data_tests:
+          - not_null
+
+      - name: forecast_time
+        data_tests:
+          - not_null
+
+      - name: ingested_at
+        data_tests:
+          - not_null
+
+      - name: rain_mm
+        data_tests:
+          - not_null
+
+      - name: source_name
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - open_meteo

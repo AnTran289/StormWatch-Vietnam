@@ -1,4 +1,19 @@
+# Python cache and local virtual environments
 __pycache__/
 *.py[cod]
+.venv/
 
-.vscode/settings.json
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Editor and operating-system files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Generated weather data and logs
+data/raw/
+*.log

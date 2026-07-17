@@ -1,0 +1,10 @@
+.git
+.venv
+.env
+.streamlit
+.vscode
+__pycache__
+*.pyc
+data
+dbt/logs
+airflow/logs

@@ -11,6 +11,8 @@ Output: data/raw/open_meteo/
 import json
 import time # pause between API calls to avoid rate limiting
 import requests # call Open-Meteo API
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import pandas as pd
 from pathlib import Path
 from datetime import datetime # create timestamp for raw JSON file names
@@ -23,6 +25,22 @@ LOCATIONS_PATH = Path("data/reference/dim_location.csv")
 RAW_OUTPUT_DIR = Path("data/raw/open_meteo/")
 PROCESSED_OUTPUT_PATH = Path("data/processed/weather_hourly.csv")
 OPEN_METEO_API_URL = "https://api.open-meteo.com/v1/forecast"
+
+HTTP_SESSION = requests.Session()
+HTTP_SESSION.mount(
+    "https://",
+    HTTPAdapter(
+        max_retries=Retry(
+            total=4,
+            connect=4,
+            read=4,
+            status=4,
+            backoff_factor=1,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods=("GET",),
+        )
+    ),
+)
 
 # Weather variables to request from Open-Meteo API
 HOURLY_VARIABLES = [
@@ -47,7 +65,7 @@ def fetch_weather_data(lat, lon):
     }
 
     # Send GET request to Open-Meteo API
-    response = requests.get(OPEN_METEO_API_URL, params=params, timeout=30)
+    response = HTTP_SESSION.get(OPEN_METEO_API_URL, params=params, timeout=30)
     response.raise_for_status() # Stop execution if the request fails (e.g., network error, 4xx or 5xx response)
     return response.json() # Convert the response to JSON and return it
 

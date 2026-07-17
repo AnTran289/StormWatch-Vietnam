@@ -1,4 +1,25 @@
 __pycache__/
 *.py[cod]
 
+# Airflow runtime state (the Docker volume normally stores these)
+airflow/logs/
+airflow/airflow.cfg
+airflow/airflow.db
+airflow/standalone_admin_password.txt
+
 .vscode/settings.json
+
+# Local environments and secrets
+.venv/
+.env
+.streamlit/secrets.toml
+
+# Generated application data and logs
+data/raw/
+*.log
+
+# Generated dbt artifacts
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+dbt/.user.yml

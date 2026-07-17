@@ -9,7 +9,7 @@ Version 3 uses **Airflow** for orchestration, **PostgreSQL** as its data warehou
 ## Architecture
 
 ```text
-Airflow scheduler (every three hours)
+Airflow scheduler (hourly)
        |
        v
 Open-Meteo weather ingestion
@@ -206,7 +206,7 @@ stormwatch-vietnam/
 
 ## Orchestrate with Airflow
 
-The Airflow integration runs the PostgreSQL/dbt pipeline every three hours:
+The Airflow integration runs the PostgreSQL/dbt pipeline every hour:
 
 ```text
 start_run -> fetch_weather -> load_postgres -> dbt_build -> finish_run
@@ -234,7 +234,7 @@ docker compose exec airflow cat /opt/airflow/simple_auth_manager_passwords.json.
 ```
 
 Enable and trigger `stormwatch_weather_pipeline` in the Airflow UI. Its schedule is
-`0 */3 * * *` in the `Asia/Ho_Chi_Minh` timezone, catch-up is disabled, and
+`0 * * * *` in the `Asia/Ho_Chi_Minh` timezone, catch-up is disabled, and
 only one run can be active at a time.
 
 Useful commands:

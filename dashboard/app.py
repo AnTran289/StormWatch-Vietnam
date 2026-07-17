@@ -314,7 +314,10 @@ def normalize_text_for_search(value: str) -> str:
         ch for ch in text
         if unicodedata.category(ch) != "Mn"
     )
-    return text
+    # Vietnamese đ/Đ is a separate letter rather than a combining
+    # diacritic, so NFD normalization does not convert it to d.
+    text = text.replace("đ", "d")
+    return " ".join(text.split())
 
 
 def validate_snapshot(
@@ -497,6 +500,10 @@ if attention_only:
         filtered_df["requires_attention"] == True
     ]
 
+st.sidebar.caption(
+    f"{filtered_df['province_code'].nunique()} provinces match"
+)
+
 
 # ============================================================
 # National summary metrics
@@ -632,7 +639,7 @@ with chart_column:
     st.subheader("Risk Distribution")
 
     risk_distribution = (
-        snapshot_df["peak_risk_level"]
+        filtered_df["peak_risk_level"]
         .value_counts()
         .reindex(
             risk_order,
@@ -655,8 +662,8 @@ with chart_column:
 
 st.subheader("Priority Provinces")
 
-priority_df = snapshot_df[
-    snapshot_df["requires_attention"] == True
+priority_df = filtered_df[
+    filtered_df["requires_attention"] == True
 ].copy()
 
 priority_df["status"] = (

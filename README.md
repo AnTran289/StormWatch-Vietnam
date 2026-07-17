@@ -351,7 +351,8 @@ python -m streamlit run dashboard/app.py
 
 ## Author
 
-**An Tran**
+**An Tran** 
+
 Data Engineering Portfolio Project
 
 [GitHub](https://github.com/AnTran289)

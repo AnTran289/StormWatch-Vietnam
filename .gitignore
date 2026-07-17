@@ -1,5 +1,7 @@
+# Python cache and local virtual environments
 __pycache__/
 *.py[cod]
+.venv/
 
 # Airflow runtime state (the Docker volume normally stores these)
 airflow/logs/
@@ -7,14 +9,18 @@ airflow/airflow.cfg
 airflow/airflow.db
 airflow/standalone_admin_password.txt
 
-.vscode/settings.json
-
-# Local environments and secrets
-.venv/
+# Local configuration and secrets
 .env
+.env.*
+!.env.example
 .streamlit/secrets.toml
 
-# Generated application data and logs
+# Editor and operating-system files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Generated weather data and logs
 data/raw/
 *.log
 

@@ -8,7 +8,6 @@ Output: data/reference/dim_location.csv
 """
 
 import time
-from duckdb import df
 import requests
 import pandas as pd
 from pathlib import Path

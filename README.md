@@ -1,134 +1,122 @@
-# StormWatch Vietnam
+# StormWatch Vietnam — Version 3
 
-StormWatch Vietnam is an end-to-end **Data Engineering** portfolio project that ingests public weather data, transforms it into prototype rainfall, storm, and flood-risk indicators, and serves interactive analytics for **Vietnam's 34 provincial-level administrative units**.
+StormWatch Vietnam is a data-engineering portfolio project that transforms hourly weather forecasts into prototype rainfall, storm, and flood-risk indicators for Vietnam's 34 provincial-level administrative units.
 
-The project evolved from a CSV-based ETL pipeline into a modern analytics platform using **Python**, **PostgreSQL**, **dbt**, and **Streamlit**, with future plans for **Airflow** orchestration and cloud deployment.
+Version 3 uses **Airflow** for orchestration, **PostgreSQL** as its data warehouse, **dbt Core** for transformation and testing, and **Streamlit** for interactive analytics.
 
-> **Disclaimer:** This project is for educational and portfolio purposes only. The generated risk indicators are experimental and **must not** be used as official weather forecasts or disaster warnings.
-
----
+> **Disclaimer:** This project is for educational and portfolio purposes. Its risk indicators are experimental and must not be used as official weather forecasts or disaster warnings.
 
 ## Architecture
 
 ```text
-Public APIs
-┌───────────────────────┐
-| Vietnam Province API  |
-| Open-Meteo API        |
-| OpenStreetMap         |
-└─────────┬─────────────┘
-          |
-          v
-Python ingestion
-          |
-          v
-Raw JSON storage
-          |
-          v
-PostgreSQL data warehouse
-(raw / analytics / metadata)
-          |
-          v
-dbt transformations
-(staging -> intermediate -> marts)
-          |
-          v
-analytics_marts.province_risk_snapshot
-          |
-          v
+Airflow scheduler (every three hours)
+       |
+       v
+Open-Meteo weather ingestion
+       |
+       v
+PostgreSQL source schemas
+|-- raw.weather_hourly
+`-- analytics.dim_locations
+       |
+       v
+dbt staging views
+|-- analytics_staging.stg_locations
+`-- analytics_staging.stg_weather_hourly
+       |
+       v
+dbt intermediate view
+`-- analytics_intermediate.int_weather_rolling_rain
+       |
+       v
+dbt analytics marts
+|-- analytics_marts.fact_risk_scores
+`-- analytics_marts.province_risk_snapshot
+       |
+       v
 Streamlit dashboard
 ```
 
----
+Airflow executes `start_run -> fetch_weather -> load_postgres -> dbt_build -> finish_run`. Pipeline execution metadata is stored separately in `metadata.pipeline_runs` and displayed by the dashboard.
 
-## Features
+## Data Warehouse
 
-### Data Ingestion
+PostgreSQL separates source data, transformations, reporting marts, and operational metadata into purpose-specific schemas.
 
-- Retrieve Vietnam's 34 provincial-level administrative units
-- Enrich monitoring locations with latitude and longitude
-- Collect seven-day hourly forecasts from Open-Meteo
-- Preserve raw API responses as JSON
-- Prepare weather data for warehouse loading
-
-### Data Warehouse
-
-- PostgreSQL schemas for raw data, analytics, and pipeline metadata
-- Versioned hourly weather storage
-- Province dimension
-- Pipeline execution metadata
-
-### dbt Transformations
-
-| Model | Purpose |
+| Schema | Responsibility |
 |---|---|
-| `stg_locations` | Clean province dimension |
-| `stg_weather_hourly` | Select the latest weather forecast version |
-| `int_weather_rolling_rain` | Calculate rolling rainfall |
-| `fact_risk_scores` | Produce hourly risk indicators |
-| `province_risk_snapshot` | Publish a dashboard-ready province summary |
+| `raw` | Versioned hourly weather forecasts |
+| `analytics` | Core location dimension used by dbt sources |
+| `analytics_staging` | Cleaned and deduplicated dbt staging views |
+| `analytics_intermediate` | Reusable calculations such as rolling rainfall |
+| `analytics_marts` | Dashboard-ready risk tables |
+| `metadata` | Pipeline execution history and health information |
 
-### Dashboard
+### Source Tables
 
-The Streamlit dashboard provides:
+#### `analytics.dim_locations`
 
-- National weather overview
-- Rainfall, storm, and flood monitoring
-- Interactive province map
-- Province drill-down
-- Hourly forecast charts
-- Pipeline health monitoring
+Contains the 34 monitored provincial-level units, including:
 
----
+- Internal `location_id`
+- Province code and Vietnamese/English names
+- Administrative unit and region
+- Latitude and longitude
+- Creation and update timestamps
 
-## Tech Stack
+#### `raw.weather_hourly`
 
-| Category | Technology |
-|---|---|
-| Language | Python |
-| Database | PostgreSQL |
-| Transformation | dbt Core |
-| Dashboard | Streamlit |
-| Data processing | pandas |
-| APIs | Requests |
-| Database connectivity | SQLAlchemy |
-| Version control | Git and GitHub |
-| Planned | Airflow and GitHub Actions |
+Stores versioned hourly forecasts, including:
 
----
+- Location and forecast timestamps
+- Ingestion timestamp
+- Temperature and relative humidity
+- Precipitation and rain
+- Wind speed and wind gusts
+- Surface pressure
+- Open-Meteo weather code
+- Source name
 
-## Data Pipeline
+Multiple forecast versions can exist for the same location and forecast hour. dbt selects the newest record using `ingested_at`, with `weather_id` as a deterministic tie-breaker.
 
-```text
-Province API
-     |
-     v
-Coordinate enrichment
-     |
-     v
-Open-Meteo API
-     |
-     v
-Raw JSON
-     |
-     v
-PostgreSQL raw.weather_hourly
-     |
-     v
-dbt staging -> intermediate -> marts
-     |
-     v
-analytics_marts.province_risk_snapshot
-     |
-     v
-Streamlit dashboard
-```
+## dbt Model Layers
 
----
+The dbt project contains five models arranged into staging, intermediate, and mart layers.
 
-## Prototype Risk Logic
+| Model | Schema | Materialization | Grain | Purpose |
+|---|---|---|---|---|
+| `stg_locations` | `analytics_staging` | View | One row per location | Cleans province identifiers, names, administrative metadata, and coordinates. |
+| `stg_weather_hourly` | `analytics_staging` | View | One row per location and forecast hour | Deduplicates forecast versions and joins location metadata. |
+| `int_weather_rolling_rain` | `analytics_intermediate` | View | One row per location and forecast hour | Calculates rolling 6-hour and 24-hour rainfall. |
+| `fact_risk_scores` | `analytics_marts` | Table | One row per location and forecast hour | Calculates rain, storm, flood, and combined risk indicators. |
+| `province_risk_snapshot` | `analytics_marts` | Table | One row per province | Selects the highest-risk forecast hour for dashboard reporting. |
 
-Risk levels use a four-level scale:
+The latest local dbt execution log records:
+
+- 5 models
+- 2 sources
+- 44 data tests
+- 5,712 hourly rows in `fact_risk_scores`
+- 34 province rows in `province_risk_snapshot`
+
+## Transformation Logic
+
+### Latest Forecast Selection
+
+`stg_weather_hourly` uses `ROW_NUMBER()` over each `location_id` and `forecast_time`. Records are ordered by the latest `ingested_at` and then the highest `weather_id`, ensuring that downstream models use only the newest available forecast version.
+
+### Rolling Rainfall
+
+`int_weather_rolling_rain` calculates:
+
+- `rain_6h_mm`: the current record plus the previous five hourly records
+- `rain_24h_mm`: the current record plus the previous 23 hourly records
+
+Windows are partitioned by `location_id` and ordered by `forecast_time`.
+
+### Prototype Risk Scores
+
+Risk scores use four levels:
 
 | Score | Level |
 |---:|---|
@@ -137,124 +125,233 @@ Risk levels use a four-level scale:
 | 2 | High |
 | 3 | Extreme |
 
-Current thresholds:
-
 | Indicator | Moderate | High | Extreme |
 |---|---:|---:|---:|
-| Hourly rainfall | 5 mm | 15 mm | 30 mm |
+| Hourly rain | 5 mm | 15 mm | 30 mm |
 | Wind gust | 40 km/h | 65 km/h | 90 km/h |
-| Rolling 6-hour rainfall | 25 mm | 50 mm | 80 mm |
-| Rolling 24-hour rainfall | 50 mm | 100 mm | 200 mm |
+| Rolling 6-hour rain | 25 mm | 50 mm | 80 mm |
+| Rolling 24-hour rain | 50 mm | 100 mm | 200 mm |
 
-The combined disaster score is calculated from rainfall, storm, and flood indicators. Provinces with **High** or **Extreme** risk are flagged as requiring attention.
+Open-Meteo codes `95`, `96`, and `99` produce a High thunderstorm score.
 
----
+- The **storm score** is the maximum of wind, hourly rain, and thunderstorm scores.
+- The **flood score** is the maximum of the 6-hour and 24-hour rainfall scores.
+- The **disaster score** is the maximum of rain, storm, and flood scores.
+
+### Province Snapshot
+
+`province_risk_snapshot` selects one highest-risk forecast hour per province. When multiple hours share the same score, the earliest forecast hour is selected. Provinces with a High or Extreme score are marked with `requires_attention = true`.
+
+## Dashboard
+
+The Streamlit dashboard queries the PostgreSQL marts directly and provides:
+
+- National risk metrics
+- Province monitoring map
+- Risk-level distribution
+- Priority-province table
+- Accent-insensitive province search
+- Province-level rainfall, wind, and risk charts
+- Complete province snapshot table
+- Recent pipeline-run status
+
+Dashboard queries are cached for five minutes. Users can clear the cache with the dashboard's refresh control.
+
+The dashboard reads:
+
+- `analytics_marts.province_risk_snapshot`
+- `analytics_marts.fact_risk_scores`
+- `metadata.pipeline_runs`
 
 ## Project Structure
 
 ```text
 stormwatch-vietnam/
+|-- airflow/
+|   |-- dags/
+|   |   `-- stormwatch_pipeline.py  # Scheduled and manual Airflow DAGs
+|   |-- Dockerfile
+|   `-- requirements.txt
 |-- dashboard/
-|   `-- app.py
+|   `-- app.py                       # PostgreSQL-backed Streamlit dashboard
 |-- dbt/
-|   |-- analyses/
-|   |-- logs/
-|   |-- seeds/
-|   `-- snapshots/
+|   |-- models/
+|   |   |-- staging/
+|   |   |-- intermediate/
+|   |   `-- marts/
+|   |-- tests/
+|   |-- dbt_project.yml
+|   `-- profiles.yml
+|-- docker/
+|   `-- postgres/
+|       `-- init.sql                 # PostgreSQL schema bootstrap
 |-- src/
 |   |-- ingestion/
-|   |   |-- coordinates_enrich.py
-|   |   |-- fetch_vietnam_provinces.py
-|   |   `-- fetch_weather.py
-|   |-- risk_engine/
-|   |   `-- calculate_risk_scores.py
-|   `-- transformation/
-|       `-- risk_snapshot.py
-|-- data/
-|   |-- analytics/
-|   |-- processed/
-|   |-- raw/
-|   `-- reference/
+|   `-- warehouse/
+|       `-- load_postgres.py         # Idempotent PostgreSQL loader
+|-- .env.example
+|-- .streamlit/
+|   `-- secrets.toml.example
+|-- compose.yaml
+|-- requirements.txt
 `-- README.md
 ```
 
----
+## Prerequisites
 
-## Getting Started
+- Python 3.10 or newer
+- Docker Desktop (the Compose stack runs PostgreSQL and Airflow)
+- dbt Core with the PostgreSQL adapter
+- Streamlit and its SQL connection dependencies
 
-### Clone the repository
+## Orchestrate with Airflow
 
-```bash
-git clone https://github.com/AnTran289/StormWatch-Vietnam.git
-cd StormWatch-Vietnam
+The Airflow integration runs the PostgreSQL/dbt pipeline every three hours:
+
+```text
+start_run -> fetch_weather -> load_postgres -> dbt_build -> finish_run
 ```
 
-### Create a virtual environment
+It also provides the manually triggered `stormwatch_refresh_locations` DAG for
+refreshing the province list and coordinates. Keeping this separate avoids
+calling the rate-limited geocoding service during every weather run.
+
+Create local configuration files, change the example password in both files,
+then build and start the stack from the repository root:
+
+```powershell
+Copy-Item .env.example .env
+Copy-Item .streamlit/secrets.toml.example .streamlit/secrets.toml
+docker compose up --build -d
+docker compose logs airflow
+```
+
+Open `http://localhost:8080`. The username is `admin`; retrieve its generated
+password with:
+
+```powershell
+docker compose exec airflow cat /opt/airflow/simple_auth_manager_passwords.json.generated
+```
+
+Enable and trigger `stormwatch_weather_pipeline` in the Airflow UI. Its schedule is
+`0 */3 * * *` in the `Asia/Ho_Chi_Minh` timezone, catch-up is disabled, and
+only one run can be active at a time.
+
+Useful commands:
+
+```powershell
+# Verify that Airflow can parse the DAGs
+docker compose exec airflow airflow dags list
+
+# Trigger the weather pipeline from the CLI
+docker compose exec airflow airflow dags trigger stormwatch_weather_pipeline
+
+# Stop Airflow while preserving its metadata volume
+docker compose down
+```
+
+The Compose stack starts PostgreSQL first and waits for it to become healthy.
+The loader then creates the required schemas/tables when absent, upserts the location
+dimension, preserves versioned forecasts in `raw.weather_hourly`, and records
+success/failure plus row counts in `metadata.pipeline_runs`. The Airflow
+container connects to the `postgres` Compose service using the `DB_*` values
+from `.env`.
+
+The repository is mounted at `/opt/airflow/project` inside the container, so
+pipeline outputs written beneath `data/` remain available on the host. This
+Compose setup is intended for local development; use the official Helm chart
+or a managed Airflow service for a production deployment.
+
+Create and activate a virtual environment:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-### Install dependencies
-
-The current repository does not include a `requirements.txt`. Install the packages used by the database, dbt, and dashboard layers directly:
+Install the required packages:
 
 ```powershell
-pip install dbt-core dbt-postgres streamlit pandas altair sqlalchemy psycopg2-binary requests
+python -m pip install -r requirements.txt
 ```
 
-### Run dbt
+## Configure dbt
 
-The dbt project directory is named `dbt`:
+Configure a profile named `stormwatch_vietnam`. Environment variables keep credentials out of version control:
+
+```yaml
+stormwatch_vietnam:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DB_HOST') }}"
+      port: "{{ env_var('DB_PORT', '5432') | int }}"
+      user: "{{ env_var('DB_USER') }}"
+      password: "{{ env_var('DB_PASSWORD') }}"
+      dbname: "{{ env_var('DB_NAME', 'stormwatch') }}"
+      schema: analytics
+      threads: 4
+```
+
+The source relations `analytics.dim_locations` and `raw.weather_hourly` must exist before dbt runs.
+
+## Run dbt
+
+Run commands from the repository root:
 
 ```powershell
 dbt debug --project-dir dbt --profiles-dir dbt
 dbt build --project-dir dbt --profiles-dir dbt
 ```
 
-> **Current repository note:** The local `dbt` directory contains supporting directories and execution logs, but its `dbt_project.yml`, `profiles.yml`, and `models/` files are currently absent. Restore or add those files before running dbt.
+Useful development commands:
 
-### Run the dashboard
+```powershell
+# Run transformations only
+dbt run --project-dir dbt --profiles-dir dbt
 
-Configure the `stormwatch_db` connection in `.streamlit/secrets.toml`, then run:
+# Run data tests only
+dbt test --project-dir dbt --profiles-dir dbt
+
+# Build one mart and all of its upstream dependencies
+dbt build --select +fact_risk_scores --project-dir dbt --profiles-dir dbt
+
+# Generate dbt documentation
+dbt docs generate --project-dir dbt --profiles-dir dbt
+dbt docs serve --project-dir dbt --profiles-dir dbt
+```
+
+## Configure and Run Streamlit
+
+Create `.streamlit/secrets.toml`:
+
+```toml
+[connections.stormwatch_db]
+dialect = "postgresql"
+host = "localhost"
+port = 5432
+database = "stormwatch"
+username = "your_username"
+password = "your_password"
+```
+
+Start the dashboard:
 
 ```powershell
 python -m streamlit run dashboard/app.py
 ```
 
-The dashboard expects these PostgreSQL relations:
+## Limitations
 
-- `analytics_marts.province_risk_snapshot`
-- `analytics_marts.fact_risk_scores`
-- `metadata.pipeline_runs`
-
----
-
-## Roadmap
-
-- [x] CSV-based ETL prototype
-- [x] PostgreSQL data warehouse
-- [x] dbt transformations and testing
-- [x] Streamlit analytics dashboard
-- [ ] Airflow orchestration
-- [ ] Incremental loading
-- [ ] GitHub Actions CI/CD
-- [ ] Object storage with MinIO or S3
-- [ ] Cloud deployment
-
----
-
-## Documentation
-
-Detailed documentation is available in the project Wiki.
-
-- 📖 https://github.com/AnTran289/StormWatch-Vietnam/wiki
-
----
+- Flood risk is based on forecast rainfall accumulation only.
+- River levels, soil moisture, terrain, drainage capacity, and official emergency-warning data are not included.
+- Thresholds are experimental and have not been validated for operational alerting.
+- Dashboard availability depends on fresh warehouse data and successful dbt builds.
 
 ## Author
 
 **An Tran**
-
 Data Engineering Portfolio Project
+
+[GitHub](https://github.com/AnTran289)

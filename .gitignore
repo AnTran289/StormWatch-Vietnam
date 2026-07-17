@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 .venv/
 
+# Airflow runtime state (the Docker volume normally stores these)
+airflow/logs/
+airflow/airflow.cfg
+airflow/airflow.db
+airflow/standalone_admin_password.txt
+
 # Local configuration and secrets
 .env
 .env.*
@@ -17,3 +23,9 @@ Thumbs.db
 # Generated weather data and logs
 data/raw/
 *.log
+
+# Generated dbt artifacts
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+dbt/.user.yml

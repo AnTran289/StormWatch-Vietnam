@@ -16,10 +16,17 @@ Run:
 python -m streamlit run dashboard/app.py
 """
 
+# os provides access to database configuration environment variables.
+import os
+
 # pandas provides DataFrame transformation functions.
 import pandas as pd
 
-# Streamlit provides dashboard components and database connections.
+# SQLAlchemy manages the PostgreSQL connection pool and SQL statements.
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine, URL
+
+# Streamlit provides dashboard components and caching.
 import streamlit as st
 import unicodedata
 import altair as alt
@@ -42,15 +49,53 @@ st.set_page_config(
 # Database connection
 # ============================================================
 
-def get_connection():
-    try:
-        return st.connection("stormwatch_db", type="sql")
-    except Exception as error:
-        st.error("Database connection failed. Check .streamlit/secrets.toml and DB credentials.")
-        st.exception(error)
-        st.stop()
+@st.cache_resource
+def get_database_engine() -> Engine:
+    """
+    Create one SQLAlchemy engine from the standard DB_* environment variables.
+    """
+    password = os.getenv("DB_PASSWORD")
+    if not password:
+        raise RuntimeError("DB_PASSWORD environment variable is required.")
 
-connection = get_connection()
+    try:
+        port = int(os.getenv("DB_PORT", "5432"))
+    except ValueError as error:
+        raise RuntimeError("DB_PORT must be an integer.") from error
+
+    database_url = URL.create(
+        drivername="postgresql+psycopg2",
+        username=os.getenv("DB_USER", "stormwatch_user"),
+        password=password,
+        host=os.getenv("DB_HOST", "localhost"),
+        port=port,
+        database=os.getenv("DB_NAME", "stormwatch"),
+    )
+
+    return create_engine(database_url, pool_pre_ping=True)
+
+
+try:
+    database_engine = get_database_engine()
+except Exception as error:
+    st.error("Database connection setup failed. Check the DB_* environment variables.")
+    st.exception(error)
+    st.stop()
+
+
+def run_query(
+    query: str,
+    params: dict | None = None,
+) -> pd.DataFrame:
+    """
+    Execute a read-only query through SQLAlchemy.
+    """
+    with database_engine.connect() as connection:
+        return pd.read_sql_query(
+            text(query),
+            connection,
+            params=params,
+        )
 
 
 # ============================================================
@@ -102,12 +147,7 @@ def load_province_snapshot() -> pd.DataFrame:
             province_name ASC
     """
 
-    # connection.query() executes a read-only SQL query
-    # and returns its result as a pandas DataFrame.
-    return connection.query(
-        query,
-        ttl=300,
-    )
+    return run_query(query)
 
 
 @st.cache_data(ttl=300)
@@ -131,10 +171,7 @@ def load_pipeline_runs() -> pd.DataFrame:
         LIMIT 10
     """
 
-    return connection.query(
-        query,
-        ttl=300,
-    )
+    return run_query(query)
 
 
 @st.cache_data(ttl=300)
@@ -176,12 +213,11 @@ def load_province_forecast(
     #
     # params supplies its value separately, avoiding unsafe
     # SQL string construction.
-    return connection.query(
+    return run_query(
         query,
         params={
             "location_id": int(location_id),
         },
-        ttl=300,
     )
 
 

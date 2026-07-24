@@ -42,7 +42,7 @@ with DAG(
     dag_id="stormwatch_weather_pipeline",
     description="Ingest forecasts, load PostgreSQL, and build dbt marts.",
     start_date=pendulum.datetime(2026, 1, 1, tz="Asia/Ho_Chi_Minh"),
-    schedule="0 */3 * * *",
+    schedule="0 * * * *",
     catchup=False,
     max_active_runs=1,
     default_args=DEFAULT_ARGS,

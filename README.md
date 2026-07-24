@@ -9,7 +9,7 @@ Version 3 uses **Airflow** for orchestration, **PostgreSQL** as its data warehou
 ## Architecture
 
 ```text
-Airflow scheduler (every three hours)
+Airflow scheduler (hourly)
        |
        v
 Open-Meteo weather ingestion
@@ -190,8 +190,6 @@ stormwatch-vietnam/
 |   `-- warehouse/
 |       `-- load_postgres.py         # Idempotent PostgreSQL loader
 |-- .env.example
-|-- .streamlit/
-|   `-- secrets.toml.example
 |-- compose.yaml
 |-- requirements.txt
 `-- README.md
@@ -202,11 +200,11 @@ stormwatch-vietnam/
 - Python 3.10 or newer
 - Docker Desktop (the Compose stack runs PostgreSQL and Airflow)
 - dbt Core with the PostgreSQL adapter
-- Streamlit and its SQL connection dependencies
+- Streamlit, SQLAlchemy, and the PostgreSQL driver
 
 ## Orchestrate with Airflow
 
-The Airflow integration runs the PostgreSQL/dbt pipeline every three hours:
+The Airflow integration runs the PostgreSQL/dbt pipeline every hour:
 
 ```text
 start_run -> fetch_weather -> load_postgres -> dbt_build -> finish_run
@@ -216,12 +214,11 @@ It also provides the manually triggered `stormwatch_refresh_locations` DAG for
 refreshing the province list and coordinates. Keeping this separate avoids
 calling the rate-limited geocoding service during every weather run.
 
-Create local configuration files, change the example password in both files,
-then build and start the stack from the repository root:
+Create the local environment file, change the example password, then build and
+start the stack from the repository root:
 
 ```powershell
 Copy-Item .env.example .env
-Copy-Item .streamlit/secrets.toml.example .streamlit/secrets.toml
 docker compose up --build -d
 docker compose logs airflow
 ```
@@ -234,7 +231,7 @@ docker compose exec airflow cat /opt/airflow/simple_auth_manager_passwords.json.
 ```
 
 Enable and trigger `stormwatch_weather_pipeline` in the Airflow UI. Its schedule is
-`0 */3 * * *` in the `Asia/Ho_Chi_Minh` timezone, catch-up is disabled, and
+`0 * * * *` in the `Asia/Ho_Chi_Minh` timezone, catch-up is disabled, and
 only one run can be active at a time.
 
 Useful commands:
@@ -324,16 +321,15 @@ dbt docs serve --project-dir dbt --profiles-dir dbt
 
 ## Configure and Run Streamlit
 
-Create `.streamlit/secrets.toml`:
+Set the database environment variables before starting Streamlit. The dashboard
+uses the same `DB_*` variables as dbt and the warehouse loader:
 
-```toml
-[connections.stormwatch_db]
-dialect = "postgresql"
-host = "localhost"
-port = 5432
-database = "stormwatch"
-username = "your_username"
-password = "your_password"
+```powershell
+$env:DB_HOST = "localhost"
+$env:DB_PORT = "5432"
+$env:DB_NAME = "stormwatch"
+$env:DB_USER = "your_username"
+$env:DB_PASSWORD = "your_password"
 ```
 
 Start the dashboard:

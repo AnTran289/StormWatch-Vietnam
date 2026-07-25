@@ -18,6 +18,24 @@ services:
       timeout: 5s
       retries: 10
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: stormwatch-dashboard
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   airflow:
     build:
       context: .

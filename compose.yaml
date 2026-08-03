@@ -27,14 +27,11 @@ services:
     env_file:
       - .env
     environment:
-      DB_HOST: postgres
+      DB_HOST: ${DB_HOST}
     ports:
       - "8501:8501"
     volumes:
       - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   airflow:
     build:
@@ -50,7 +47,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DEFAULT_TIMEZONE: Asia/Ho_Chi_Minh
       AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"
-      DB_HOST: postgres
+      DB_HOST: ${DB_HOST}
     ports:
       - "8080:8080"
     volumes:

@@ -1,5 +1,21 @@
 services:
+  pipeline:
+    build:
+      context: .
+      dockerfile: airflow/Dockerfile
+    working_dir: /opt/airflow/project
+    entrypoint: []
+    env_file:
+      - .env
+    environment:
+      DB_HOST: ${DB_HOST}
+    volumes:
+      - .:/opt/airflow/project
+    profiles:
+      - pipeline
   postgres:
+    profiles:
+      - local-db
     image: postgres:17
     container_name: stormwatch-postgres
     restart: unless-stopped
@@ -34,6 +50,8 @@ services:
       - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
 
   airflow:
+    profiles:
+      - airflow
     build:
       context: .
       dockerfile: airflow/Dockerfile

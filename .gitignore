@@ -29,3 +29,9 @@ dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 dbt/.user.yml
+stormwatch.sql
+logs/
+data/raw/
+data/processed/
+.env
+.streamlit/secrets.toml

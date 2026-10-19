@@ -6,35 +6,30 @@ Version 3 uses **Airflow** for orchestration, **PostgreSQL** as its data warehou
 
 > **Disclaimer:** This project is for educational and portfolio purposes. Its risk indicators are experimental and must not be used as official weather forecasts or disaster warnings.
 
+## Data Engineering at a Glance
+
+| Area | Implementation |
+|---|---|
+| Ingestion & orchestration | Hourly Open-Meteo ingestion coordinated by an Airflow DAG |
+| Storage & modelling | PostgreSQL source schemas and five dbt models across staging, intermediate, and marts |
+| SQL transformations | `ROW_NUMBER()` deduplication, rainfall window calculations, fact and snapshot tables |
+| Data quality | dbt data tests and pipeline run metadata |
+| Analytics | Streamlit dashboard reading warehouse marts |
+
+**Model grains:** `fact_risk_scores` has one row per location and forecast hour; `province_risk_snapshot` has one row per province. Forecast versions remain in the raw layer while staging selects the latest version.
+
 ## Architecture
 
-```text
-Airflow scheduler (hourly)
-       |
-       v
-Open-Meteo weather ingestion
-       |
-       v
-PostgreSQL source schemas
-|-- raw.weather_hourly
-`-- analytics.dim_locations
-       |
-       v
-dbt staging views
-|-- analytics_staging.stg_locations
-`-- analytics_staging.stg_weather_hourly
-       |
-       v
-dbt intermediate view
-`-- analytics_intermediate.int_weather_rolling_rain
-       |
-       v
-dbt analytics marts
-|-- analytics_marts.fact_risk_scores
-`-- analytics_marts.province_risk_snapshot
-       |
-       v
-Streamlit dashboard
+```mermaid
+flowchart TD
+    A[Airflow hourly DAG] --> B[Open-Meteo ingestion]
+    B --> C[PostgreSQL raw weather and location sources]
+    C --> D[dbt staging: clean and deduplicate]
+    D --> E[dbt intermediate: rolling rainfall]
+    E --> F[dbt marts: risk fact and province snapshot]
+    F --> G[Streamlit analytics dashboard]
+    A --> H[Pipeline run metadata]
+    H --> G
 ```
 
 Airflow executes `start_run -> fetch_weather -> load_postgres -> dbt_build -> finish_run`. Pipeline execution metadata is stored separately in `metadata.pipeline_runs` and displayed by the dashboard.
@@ -91,7 +86,7 @@ The dbt project contains five models arranged into staging, intermediate, and ma
 | `fact_risk_scores` | `analytics_marts` | Table | One row per location and forecast hour | Calculates rain, storm, flood, and combined risk indicators. |
 | `province_risk_snapshot` | `analytics_marts` | Table | One row per province | Selects the highest-risk forecast hour for dashboard reporting. |
 
-The latest local dbt execution log records:
+A previously recorded local dbt execution log (not independently rerun as part of this documentation update) reports:
 
 - 5 models
 - 2 sources
@@ -337,6 +332,10 @@ Start the dashboard:
 ```powershell
 python -m streamlit run dashboard/app.py
 ```
+
+## Verification Notes
+
+The model counts, test counts, and row counts above are historical local execution results, not a live status dashboard. To verify the current project locally, start the Compose services, trigger the Airflow DAG, and run `dbt build --project-dir dbt --profiles-dir dbt` with the required environment variables configured.
 
 ## Limitations
 
